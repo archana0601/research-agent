@@ -254,12 +254,31 @@ HTML = """<!DOCTYPE html>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0b0f; color: #e8e8f0; min-height: 100vh; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0b0f; color: #e8e8f0; min-height: 100vh; display: flex; flex-direction: column; }
 
-header { padding: 22px 40px; border-bottom: 1px solid #1e1e2e; display: flex; align-items: center; gap: 14px; }
+header { padding: 22px 40px; border-bottom: 1px solid #1e1e2e; display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 .logo { font-size: 18px; font-weight: 800; background: linear-gradient(135deg, #7c6fff, #3dd8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 header small { font-size: 12px; color: #444; -webkit-text-fill-color: #444; }
 
+.layout { display: flex; flex: 1; }
+
+/* Sidebar */
+.sidebar { width: 260px; flex-shrink: 0; border-right: 1px solid #1e1e2e; padding: 24px 16px; display: flex; flex-direction: column; gap: 8px; min-height: calc(100vh - 65px); }
+.sidebar-title { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #444; font-weight: 700; padding: 0 8px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+.clear-all { font-size: 10px; color: #333; cursor: pointer; text-transform: none; letter-spacing: 0; transition: color 0.2s; }
+.clear-all:hover { color: #ff6b6b; }
+.history-item { padding: 10px 12px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+.history-item:hover { background: #141420; border-color: #2a2a3e; }
+.history-item.active { background: #1a1a2e; border-color: #7c6fff44; }
+.hi-question { font-size: 13px; color: #ccc; line-height: 1.4; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hi-meta { display: flex; justify-content: space-between; align-items: center; }
+.hi-date { font-size: 11px; color: #444; }
+.hi-del { font-size: 11px; color: #333; cursor: pointer; transition: color 0.2s; padding: 2px 4px; }
+.hi-del:hover { color: #ff6b6b; }
+.no-history { font-size: 12px; color: #333; padding: 8px; text-align: center; margin-top: 16px; }
+
+/* Main */
+.main { flex: 1; overflow-x: hidden; }
 .hero { padding: 56px 40px 36px; max-width: 860px; margin: 0 auto; }
 .hero h1 { font-size: 36px; font-weight: 900; margin-bottom: 10px; }
 .hero h1 span { background: linear-gradient(135deg, #7c6fff, #3dd8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -373,29 +392,110 @@ tr:hover td { background: #141422; color: #ddd; }
   <small>Groq + DuckDuckGo — Free &amp; Open</small>
 </header>
 
-<div class="hero">
-  <h1>Deep research, <span>beautifully structured.</span></h1>
-  <p>5 targeted searches. 2-pass AI analysis. Structured report with charts, comparisons &amp; actionable takeaways.</p>
-  <div class="search-row">
-    <input id="q" type="text" placeholder="What do you want to research?" onkeydown="if(event.key==='Enter')go()" autofocus />
-    <button class="btn" id="btn" onclick="go()">Research</button>
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-title">
+      History
+      <span class="clear-all" onclick="clearHistory()">Clear all</span>
+    </div>
+    <div id="history-list"><div class="no-history">No searches yet</div></div>
   </div>
-</div>
 
-<div class="container">
-  <div class="loader" id="loader">
-    <div class="progress-steps">
-      <div class="ps" id="p1"><div class="ps-dot"></div> Planning 5 research queries...</div>
-      <div class="ps" id="p2"><div class="ps-dot"></div> Searching the web...</div>
-      <div class="ps" id="p3"><div class="ps-dot"></div> Extracting facts &amp; data points...</div>
-      <div class="ps" id="p4"><div class="ps-dot"></div> Synthesizing your report...</div>
+  <!-- Main -->
+  <div class="main">
+    <div class="hero">
+      <h1>Deep research, <span>beautifully structured.</span></h1>
+      <p>5 targeted searches. 2-pass AI analysis. Structured report with charts, comparisons &amp; actionable takeaways.</p>
+      <div class="search-row">
+        <input id="q" type="text" placeholder="What do you want to research?" onkeydown="if(event.key==='Enter')go()" autofocus />
+        <button class="btn" id="btn" onclick="go()">Research</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="loader" id="loader">
+        <div class="progress-steps">
+          <div class="ps" id="p1"><div class="ps-dot"></div> Planning research angles...</div>
+          <div class="ps" id="p2"><div class="ps-dot"></div> Searching the web...</div>
+          <div class="ps" id="p3"><div class="ps-dot"></div> Extracting facts &amp; data points...</div>
+          <div class="ps" id="p4"><div class="ps-dot"></div> Synthesizing your report...</div>
+        </div>
+      </div>
+      <div class="results" id="results"></div>
     </div>
   </div>
-  <div class="results" id="results"></div>
 </div>
 
 <script>
 var chartInstance = null;
+var currentData = null;
+
+// ── History ──────────────────────────────────────────────────────────────────
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem("research_history") || "[]"); }
+  catch(e) { return []; }
+}
+
+function saveToHistory(question, data) {
+  var history = loadHistory();
+  var item = {
+    id: Date.now().toString(),
+    question: question,
+    date: new Date().toLocaleDateString("en-GB", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}),
+    data: data
+  };
+  history.unshift(item);
+  if (history.length > 30) history = history.slice(0, 30);
+  localStorage.setItem("research_history", JSON.stringify(history));
+  renderSidebar();
+}
+
+function renderSidebar() {
+  var history = loadHistory();
+  var list = document.getElementById("history-list");
+  if (!history.length) {
+    list.innerHTML = "<div class='no-history'>No searches yet</div>";
+    return;
+  }
+  list.innerHTML = history.map(function(item) {
+    return "<div class='history-item' id='hi-" + item.id + "' onclick='loadReport(\"" + item.id + "\")'>" +
+      "<div class='hi-question'>" + item.question + "</div>" +
+      "<div class='hi-meta'><span class='hi-date'>" + item.date + "</span>" +
+      "<span class='hi-del' onclick='deleteItem(event, \"" + item.id + "\")'>✕</span></div>" +
+      "</div>";
+  }).join("");
+}
+
+function loadReport(id) {
+  var history = loadHistory();
+  var item = history.find(function(h){ return h.id === id; });
+  if (!item) return;
+  document.getElementById("q").value = item.question;
+  document.getElementById("loader").style.display = "none";
+  document.querySelectorAll(".history-item").forEach(function(el){ el.classList.remove("active"); });
+  var el = document.getElementById("hi-" + id);
+  if (el) el.classList.add("active");
+  renderReport(item.question, item.data);
+}
+
+function deleteItem(e, id) {
+  e.stopPropagation();
+  var history = loadHistory().filter(function(h){ return h.id !== id; });
+  localStorage.setItem("research_history", JSON.stringify(history));
+  renderSidebar();
+}
+
+function clearHistory() {
+  localStorage.removeItem("research_history");
+  renderSidebar();
+}
+
+// Init sidebar on page load
+renderSidebar();
+
+// ── Search ───────────────────────────────────────────────────────────────────
 
 async function go() {
   var q = document.getElementById("q").value.trim();
@@ -441,6 +541,7 @@ async function go() {
       document.getElementById("results").style.display = "block";
       document.getElementById("results").innerHTML = "<p style='color:#ff6b6b;padding:20px 0'>Error: " + data.error + "</p>";
     } else {
+      saveToHistory(q, data);
       renderReport(q, data);
     }
   } catch(e) {
