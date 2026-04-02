@@ -460,12 +460,26 @@ function renderSidebar() {
     return;
   }
   list.innerHTML = history.map(function(item) {
-    return "<div class='history-item' id='hi-" + item.id + "' onclick='loadReport(\"" + item.id + "\")'>" +
+    return "<div class='history-item' data-id='" + item.id + "'>" +
       "<div class='hi-question'>" + item.question + "</div>" +
-      "<div class='hi-meta'><span class='hi-date'>" + item.date + "</span>" +
-      "<span class='hi-del' onclick='deleteItem(event, \"" + item.id + "\")'>✕</span></div>" +
-      "</div>";
+      "<div class='hi-meta'>" +
+        "<span class='hi-date'>" + item.date + "</span>" +
+        "<span class='hi-del' data-del='" + item.id + "'>✕</span>" +
+      "</div></div>";
   }).join("");
+
+  list.querySelectorAll(".history-item").forEach(function(el) {
+    el.addEventListener("click", function() {
+      loadReport(el.dataset.id);
+    });
+  });
+
+  list.querySelectorAll(".hi-del").forEach(function(el) {
+    el.addEventListener("click", function(e) {
+      e.stopPropagation();
+      deleteItem(el.dataset.del);
+    });
+  });
 }
 
 function loadReport(id) {
@@ -475,13 +489,12 @@ function loadReport(id) {
   document.getElementById("q").value = item.question;
   document.getElementById("loader").style.display = "none";
   document.querySelectorAll(".history-item").forEach(function(el){ el.classList.remove("active"); });
-  var el = document.getElementById("hi-" + id);
+  var el = document.querySelector("[data-id='" + id + "']");
   if (el) el.classList.add("active");
   renderReport(item.question, item.data);
 }
 
-function deleteItem(e, id) {
-  e.stopPropagation();
+function deleteItem(id) {
   var history = loadHistory().filter(function(h){ return h.id !== id; });
   localStorage.setItem("research_history", JSON.stringify(history));
   renderSidebar();
@@ -492,8 +505,7 @@ function clearHistory() {
   renderSidebar();
 }
 
-// Init sidebar on page load
-renderSidebar();
+window.addEventListener("DOMContentLoaded", function() { renderSidebar(); });
 
 // ── Search ───────────────────────────────────────────────────────────────────
 
