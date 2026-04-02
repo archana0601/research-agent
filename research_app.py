@@ -270,12 +270,16 @@ header { padding: 16px 32px; border-bottom: 1px solid rgba(255,255,255,0.05); di
 .hero h1 span { background: linear-gradient(135deg, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .hero p { color: #333; font-size: 14px; margin-bottom: 24px; font-weight: 400; }
 
-.search-wrap { position: relative; display: flex; gap: 10px; }
-.search-wrap input { flex: 1; padding: 16px 22px; font-size: 15px; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; background: rgba(255,255,255,0.04); color: #e8e8f0; outline: none; transition: all 0.2s; font-family: inherit; }
-.search-wrap input::placeholder { color: #333; }
-.search-wrap input:focus { border-color: rgba(124,111,255,0.4); background: rgba(124,111,255,0.05); box-shadow: 0 0 0 3px rgba(124,111,255,0.08); }
-.btn { padding: 16px 28px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); color: #07070d; border: none; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; white-space: nowrap; transition: all 0.2s; font-family: inherit; box-shadow: 0 0 20px rgba(124,111,255,0.25); }
-.btn:hover { transform: translateY(-1px); box-shadow: 0 0 30px rgba(124,111,255,0.4); }
+.search-wrap { position: relative; display: flex; gap: 10px; align-items: center; }
+.search-wrap input { flex: 1; padding: 22px 28px; font-size: 18px; border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; background: rgba(255,255,255,0.04); color: #e8e8f0; outline: none; transition: all 0.2s; font-family: inherit; font-weight: 400; }
+.search-wrap input::placeholder { color: #2a2a3a; }
+.search-wrap input:focus { border-color: rgba(124,111,255,0.4); background: rgba(124,111,255,0.05); box-shadow: 0 0 0 4px rgba(124,111,255,0.08); }
+.mic-btn { width: 56px; height: 56px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex-shrink: 0; font-size: 20px; }
+.mic-btn:hover { background: rgba(124,111,255,0.1); border-color: rgba(124,111,255,0.3); }
+.mic-btn.listening { background: rgba(255,80,80,0.15); border-color: rgba(255,80,80,0.4); animation: mic-pulse 1s infinite; }
+@keyframes mic-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,80,80,0.3)} 50%{box-shadow:0 0 0 8px rgba(255,80,80,0)} }
+.btn { padding: 22px 32px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); color: #07070d; border: none; border-radius: 16px; font-size: 16px; font-weight: 800; cursor: pointer; white-space: nowrap; transition: all 0.2s; font-family: inherit; box-shadow: 0 0 24px rgba(124,111,255,0.25); }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 0 36px rgba(124,111,255,0.4); }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
 
 .container { max-width: 880px; margin: 0 auto; padding: 0 48px 80px; }
@@ -403,9 +407,10 @@ tr:hover td { background: rgba(124,111,255,0.04); color: #aaa; }
   <div class="main">
     <div class="hero">
       <h1>Deep research, <span>beautifully structured.</span></h1>
-      <p>5 targeted searches. 2-pass AI analysis. Structured report with charts, comparisons &amp; actionable takeaways.</p>
-      <div class="search-row">
+      <p>Live web search &rarr; AI analysis &rarr; Structured report with charts, comparisons &amp; takeaways.</p>
+      <div class="search-wrap">
         <input id="q" type="text" placeholder="What do you want to research?" onkeydown="if(event.key==='Enter')go()" autofocus />
+        <button class="mic-btn" id="micBtn" title="Voice input">&#127908;</button>
         <button class="btn" id="btn" onclick="go()">Research</button>
       </div>
     </div>
@@ -502,8 +507,6 @@ function clearHistory() {
   localStorage.removeItem("research_history");
   renderSidebar();
 }
-
-window.addEventListener("DOMContentLoaded", function() { renderSidebar(); });
 
 // ── Search ───────────────────────────────────────────────────────────────────
 
@@ -675,6 +678,56 @@ function renderReport(question, d) {
   }, 100);
 }
 
+// ── Voice Input ──────────────────────────────────────────────────────────────
+
+var recognition = null;
+var listening = false;
+
+window.addEventListener("DOMContentLoaded", function() {
+  renderSidebar();
+  var micBtn = document.getElementById("micBtn");
+  if (!micBtn) return;
+
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    micBtn.style.display = "none";
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = "en-US";
+
+  recognition.onresult = function(e) {
+    var transcript = e.results[0][0].transcript;
+    document.getElementById("q").value = transcript;
+    stopListening();
+    go();
+  };
+  recognition.onerror = function() { stopListening(); };
+  recognition.onend = function() { stopListening(); };
+
+  micBtn.addEventListener("click", function() {
+    if (listening) { stopListening(); } else { startListening(); }
+  });
+});
+
+function startListening() {
+  if (!recognition) return;
+  listening = true;
+  document.getElementById("micBtn").classList.add("listening");
+  document.getElementById("micBtn").textContent = "🔴";
+  recognition.start();
+}
+
+function stopListening() {
+  listening = false;
+  var btn = document.getElementById("micBtn");
+  if (btn) { btn.classList.remove("listening"); btn.innerHTML = "&#127908;"; }
+  if (recognition) { try { recognition.stop(); } catch(e) {} }
+}
+
 function downloadPDF() {
   var btn = document.getElementById("pdfBtn");
   btn.disabled = true;
@@ -756,80 +809,76 @@ nav { display: flex; justify-content: space-between; align-items: center; paddin
 .nav-cta:hover { opacity: 0.88; }
 
 /* Hero */
-.hero-wrap { position: relative; padding: 160px 24px 100px; text-align: center; overflow: hidden; }
-.hero-glow { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 800px; height: 500px; background: radial-gradient(ellipse at center top, rgba(124,111,255,0.18) 0%, rgba(61,216,204,0.08) 50%, transparent 70%); pointer-events: none; }
-.hero-inner { max-width: 820px; margin: 0 auto; position: relative; }
-.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(124,111,255,0.1); border: 1px solid rgba(124,111,255,0.25); color: #a78bfa; padding: 6px 16px; border-radius: 100px; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 32px; }
-.badge-dot { width: 6px; height: 6px; background: #7c6fff; border-radius: 50%; animation: pulse 2s infinite; }
+.hero-wrap { position: relative; padding: 140px 24px 80px; text-align: center; overflow: hidden; }
+.hero-glow { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 800px; height: 500px; background: radial-gradient(ellipse at center top, rgba(124,111,255,0.15) 0%, rgba(61,216,204,0.06) 50%, transparent 70%); pointer-events: none; }
+.hero-inner { max-width: 760px; margin: 0 auto; position: relative; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(124,111,255,0.1); border: 1px solid rgba(124,111,255,0.25); color: #a78bfa; padding: 6px 14px; border-radius: 100px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 28px; }
+.badge-dot { width: 6px; height: 6px; background: #7c6fff; border-radius: 50%; animation: pulse 2s infinite; flex-shrink: 0; }
 @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
-.hero h1 { font-size: 68px; font-weight: 900; line-height: 1.05; letter-spacing: -2px; margin-bottom: 24px; }
+.hero h1 { font-size: 62px; font-weight: 900; line-height: 1.06; letter-spacing: -2px; margin-bottom: 20px; }
 .hero h1 .grad { background: linear-gradient(135deg, #a78bfa 0%, #34d399 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.hero p { font-size: 18px; color: #555; line-height: 1.75; margin-bottom: 44px; max-width: 540px; margin-left: auto; margin-right: auto; font-weight: 400; }
-.hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 64px; }
-.btn-primary { padding: 15px 32px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); color: #07070d; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; text-decoration: none; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 30px rgba(124,111,255,0.3); }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 40px rgba(124,111,255,0.45); }
-.btn-ghost { padding: 15px 32px; background: transparent; color: #888; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
-.btn-ghost:hover { border-color: rgba(124,111,255,0.4); color: #ccc; }
+.hero p { font-size: 16px; color: #4a4a5a; line-height: 1.65; margin-bottom: 36px; max-width: 460px; margin-left: auto; margin-right: auto; }
+.hero-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 52px; }
+.btn-primary { padding: 14px 28px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); color: #07070d; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 24px rgba(124,111,255,0.3); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 36px rgba(124,111,255,0.45); }
+.btn-ghost { padding: 14px 28px; background: transparent; color: #555; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+.btn-ghost:hover { border-color: rgba(124,111,255,0.35); color: #ccc; }
 
 /* Stats bar */
-.stats-bar { display: flex; justify-content: center; gap: 0; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; overflow: hidden; max-width: 600px; margin: 0 auto; background: rgba(255,255,255,0.02); }
-.stat-item { flex: 1; padding: 20px 24px; text-align: center; border-right: 1px solid rgba(255,255,255,0.06); }
+.stats-bar { display: flex; justify-content: center; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; max-width: 480px; margin: 0 auto; background: rgba(255,255,255,0.02); }
+.stat-item { flex: 1; padding: 16px 20px; text-align: center; border-right: 1px solid rgba(255,255,255,0.05); }
 .stat-item:last-child { border-right: none; }
-.stat-val { font-size: 26px; font-weight: 900; background: linear-gradient(135deg, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.stat-label { font-size: 11px; color: #444; margin-top: 4px; font-weight: 500; }
+.stat-val { font-size: 22px; font-weight: 900; background: linear-gradient(135deg, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.stat-label { font-size: 10px; color: #333; margin-top: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* Section divider */
 .divider { border: none; border-top: 1px solid rgba(255,255,255,0.04); margin: 0; }
 
 /* Features */
-.features-wrap { padding: 100px 60px; max-width: 1140px; margin: 0 auto; }
-.section-label { text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: rgba(124,111,255,0.7); font-weight: 700; margin-bottom: 14px; }
-.section-title { text-align: center; font-size: 40px; font-weight: 900; letter-spacing: -1px; margin-bottom: 16px; }
+.features-wrap { padding: 80px 60px; max-width: 1100px; margin: 0 auto; }
+.section-label { text-align: center; font-size: 10px; text-transform: uppercase; letter-spacing: 3px; color: rgba(124,111,255,0.6); font-weight: 700; margin-bottom: 12px; }
+.section-title { text-align: center; font-size: 34px; font-weight: 900; letter-spacing: -0.8px; margin-bottom: 40px; }
 .section-title .grad { background: linear-gradient(135deg, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.section-sub { text-align: center; font-size: 15px; color: #444; margin-bottom: 60px; max-width: 480px; margin-left: auto; margin-right: auto; }
-.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.feat { background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 32px; transition: all 0.3s; position: relative; overflow: hidden; }
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.feat { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 26px; transition: all 0.3s; position: relative; overflow: hidden; }
 .feat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(124,111,255,0.4), transparent); opacity: 0; transition: opacity 0.3s; }
-.feat:hover { border-color: rgba(124,111,255,0.2); transform: translateY(-2px); }
+.feat:hover { border-color: rgba(124,111,255,0.18); transform: translateY(-2px); }
 .feat:hover::before { opacity: 1; }
-.feat-icon { width: 44px; height: 44px; background: linear-gradient(135deg, rgba(124,111,255,0.15), rgba(61,216,204,0.1)); border: 1px solid rgba(124,111,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 18px; }
-.feat h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #e8e8f0; }
-.feat p { font-size: 13px; color: #444; line-height: 1.75; }
+.feat-icon { width: 40px; height: 40px; background: rgba(124,111,255,0.1); border: 1px solid rgba(124,111,255,0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 14px; }
+.feat h3 { font-size: 14px; font-weight: 700; margin-bottom: 7px; color: #e8e8f0; }
+.feat p { font-size: 12px; color: #3a3a4a; line-height: 1.65; }
 
 /* How it works */
-.how-wrap { padding: 100px 60px; max-width: 860px; margin: 0 auto; }
-.steps { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.step { background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 32px; }
-.step-num { width: 36px; height: 36px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: #07070d; margin-bottom: 16px; }
-.step h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
-.step p { font-size: 13px; color: #444; line-height: 1.7; }
+.how-wrap { padding: 80px 60px; max-width: 820px; margin: 0 auto; }
+.steps { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.step { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 26px; }
+.step-num { width: 32px; height: 32px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #07070d; margin-bottom: 14px; }
+.step h3 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.step p { font-size: 12px; color: #3a3a4a; line-height: 1.65; }
 
 /* CTA */
-.cta-wrap { padding: 100px 24px; text-align: center; position: relative; overflow: hidden; }
-.cta-glow { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 600px; height: 300px; background: radial-gradient(ellipse at center bottom, rgba(61,216,204,0.12) 0%, transparent 70%); pointer-events: none; }
-.cta-wrap h2 { font-size: 52px; font-weight: 900; letter-spacing: -1.5px; margin-bottom: 16px; }
+.cta-wrap { padding: 80px 24px; text-align: center; position: relative; overflow: hidden; }
+.cta-glow { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 500px; height: 250px; background: radial-gradient(ellipse at center bottom, rgba(61,216,204,0.1) 0%, transparent 70%); pointer-events: none; }
+.cta-wrap h2 { font-size: 44px; font-weight: 900; letter-spacing: -1.2px; margin-bottom: 12px; }
 .cta-wrap h2 .grad { background: linear-gradient(135deg, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.cta-wrap p { color: #444; font-size: 16px; margin-bottom: 36px; }
-.cta-note { margin-top: 16px; font-size: 12px; color: #333; }
+.cta-wrap p { color: #3a3a4a; font-size: 14px; margin-bottom: 28px; }
+.cta-note { margin-top: 14px; font-size: 11px; color: #2a2a3a; }
 
 /* Footer */
-footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 28px 60px; display: flex; justify-content: space-between; align-items: center; }
-.footer-logo { font-size: 15px; font-weight: 800; background: linear-gradient(135deg, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-footer p { font-size: 12px; color: #2a2a3a; }
+footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 24px 60px; display: flex; justify-content: space-between; align-items: center; }
+.footer-logo { font-size: 14px; font-weight: 800; background: linear-gradient(135deg, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+footer p { font-size: 11px; color: #1e1e2e; }
 
 @media (max-width: 768px) {
-  nav { padding: 16px 20px; }
+  nav { padding: 14px 20px; }
   .nav-links { display: none; }
-  .hero-wrap { padding: 120px 20px 80px; }
-  .hero h1 { font-size: 38px; letter-spacing: -1px; }
-  .hero p { font-size: 15px; }
+  .hero-wrap { padding: 110px 20px 60px; }
+  .hero h1 { font-size: 36px; letter-spacing: -1px; }
   .features-wrap, .how-wrap { padding: 60px 20px; }
   .features-grid { grid-template-columns: 1fr; }
   .steps { grid-template-columns: 1fr; }
-  .stats-bar { flex-direction: column; }
-  .stat-item { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .stat-item:last-child { border-bottom: none; }
-  footer { flex-direction: column; gap: 8px; padding: 24px 20px; }
+  .stats-bar { max-width: 100%; }
+  footer { flex-direction: column; gap: 8px; padding: 20px; }
 }
 </style>
 </head>
@@ -849,15 +898,15 @@ footer p { font-size: 12px; color: #2a2a3a; }
   <div class="hero-inner">
     <div class="hero-badge"><span class="badge-dot"></span> Powered by Groq &amp; Tavily</div>
     <h1>Research anything.<br><span class="grad">Know everything.</span></h1>
-    <p>Ask any question and get a full structured research report — with charts, comparisons, key stats, and actionable takeaways — in under 30 seconds.</p>
+    <p>Ask a question. Get a full structured report with charts, comparisons, and actionable takeaways — in seconds.</p>
     <div class="hero-btns">
-      <a href="/app" class="btn-primary">Start Researching Free &rarr;</a>
+      <a href="/app" class="btn-primary">Try ResearchAI &rarr;</a>
       <a href="#features" class="btn-ghost">See how it works</a>
     </div>
     <div class="stats-bar">
       <div class="stat-item"><div class="stat-val">&lt;30s</div><div class="stat-label">Per report</div></div>
-      <div class="stat-item"><div class="stat-val">5x</div><div class="stat-label">Searches per query</div></div>
-      <div class="stat-item"><div class="stat-val">100%</div><div class="stat-label">Free to use</div></div>
+      <div class="stat-item"><div class="stat-val">5+</div><div class="stat-label">Live searches</div></div>
+      <div class="stat-item"><div class="stat-val">AI</div><div class="stat-label">Powered analysis</div></div>
     </div>
   </div>
 </section>
@@ -867,37 +916,36 @@ footer p { font-size: 12px; color: #2a2a3a; }
 <section class="features-wrap" id="features">
   <div class="section-label">Features</div>
   <h2 class="section-title">Everything a <span class="grad">great report</span> needs</h2>
-  <p class="section-sub">Built for people who need real answers, not a wall of links.</p>
   <div class="features-grid">
     <div class="feat">
       <div class="feat-icon">&#128269;</div>
       <h3>Live Web Search</h3>
-      <p>Automatically generates targeted search queries and fetches fresh results via Tavily — the search engine built for AI.</p>
+      <p>Fresh results via Tavily — the search engine built for AI. Always current, always relevant.</p>
     </div>
     <div class="feat">
       <div class="feat-icon">&#129504;</div>
       <h3>2-Pass AI Analysis</h3>
-      <p>First extracts raw facts and figures, then synthesizes them into a coherent report. No hallucinations, no filler.</p>
+      <p>Extracts facts first, then synthesizes. No hallucinations, no filler.</p>
     </div>
     <div class="feat">
       <div class="feat-icon">&#128202;</div>
       <h3>Charts &amp; Key Stats</h3>
-      <p>Every report includes a visual bar chart and 4 highlighted key statistics pulled directly from the research.</p>
+      <p>Visual chart and 4 highlighted stats pulled directly from the research.</p>
     </div>
     <div class="feat">
       <div class="feat-icon">&#128203;</div>
       <h3>Comparison Tables</h3>
-      <p>Side-by-side breakdowns of products, approaches, or providers — structured so you can decide fast.</p>
+      <p>Side-by-side breakdowns so you can make decisions fast.</p>
     </div>
     <div class="feat">
       <div class="feat-icon">&#128172;</div>
       <h3>Follow-up Questions</h3>
-      <p>Ask anything about a report and get instant, context-aware answers — like having a research assistant on call.</p>
+      <p>Ask anything about a report and get instant, context-aware answers.</p>
     </div>
     <div class="feat">
       <div class="feat-icon">&#128196;</div>
       <h3>PDF Export</h3>
-      <p>Download any report as a clean, formatted PDF — ready to share, present, or archive immediately.</p>
+      <p>Download any report as a clean PDF — ready to share or present.</p>
     </div>
   </div>
 </section>
@@ -907,27 +955,26 @@ footer p { font-size: 12px; color: #2a2a3a; }
 <section class="how-wrap" id="how">
   <div class="section-label">How It Works</div>
   <h2 class="section-title">From question to report <span class="grad">in 4 steps</span></h2>
-  <p class="section-sub">No prompting skills needed. Just ask.</p>
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
-      <h3>Type your question</h3>
-      <p>Ask anything — product research, market analysis, scientific topics, travel, business strategy, or current events.</p>
+      <h3>Ask your question</h3>
+      <p>Type or speak anything — products, markets, science, travel, strategy.</p>
     </div>
     <div class="step">
       <div class="step-num">2</div>
-      <h3>AI plans the research</h3>
-      <p>Groq breaks your question into 4 focused sub-questions, then runs live searches via Tavily for each one.</p>
+      <h3>AI searches the web</h3>
+      <p>Breaks into sub-questions, runs live searches, pulls fresh data.</p>
     </div>
     <div class="step">
       <div class="step-num">3</div>
       <h3>Facts are extracted</h3>
-      <p>The AI reads all results and pulls out specific numbers, names, prices, comparisons, and expert opinions.</p>
+      <p>Specific numbers, names, prices, and comparisons — no fluff.</p>
     </div>
     <div class="step">
       <div class="step-num">4</div>
-      <h3>Your report is ready</h3>
-      <p>A full structured report: executive summary, key stats, 4 deep sections, comparison table, and 5 takeaways.</p>
+      <h3>Report is ready</h3>
+      <p>Summary, stats, sections, table, takeaways. Export as PDF.</p>
     </div>
   </div>
 </section>
@@ -936,15 +983,15 @@ footer p { font-size: 12px; color: #2a2a3a; }
 
 <section class="cta-wrap">
   <div class="cta-glow"></div>
-  <h2>Start researching<br><span class="grad">smarter today.</span></h2>
-  <p>Free to use. No sign-up. No limits.</p>
+  <h2>Research smarter.<br><span class="grad">Starting now.</span></h2>
+  <p>No more tab-switching. Get structured answers instantly.</p>
   <a href="/app" class="btn-primary">Launch ResearchAI &rarr;</a>
-  <div class="cta-note">Powered by Groq (LLaMA 3.3 70B) &amp; Tavily Search</div>
+  <div class="cta-note">Powered by Groq LLaMA 3.3 70B &amp; Tavily Search</div>
 </section>
 
 <footer>
   <div class="footer-logo">ResearchAI</div>
-  <p>&copy; 2026 ResearchAI &mdash; Built with Groq &amp; Tavily</p>
+  <p>&copy; 2026 ResearchAI</p>
 </footer>
 
 </body>
