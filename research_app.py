@@ -116,26 +116,26 @@ Topic: {question}"""}],
     return res.choices[0].message.content.strip()
 
 
-def synthesize_report(question, facts, all_results):
-    """Pass 2: build structured report from extracted facts."""
+def synthesize_report(question, web_results, knowledge):
+    """Pass 2: build structured report, web results take priority over model knowledge."""
     res = get_client().chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": f"""You are a senior research analyst writing a structured report.
 
-You have been given:
-1. EXTRACTED FACTS — specific data points pulled from search results
-2. RAW SEARCH RESULTS — the original source material
-
-IMPORTANT: If the search results are irrelevant or sparse for the question, use your own training knowledge to answer thoroughly. Never say data is unavailable — always produce a complete, specific, useful report regardless of search quality.
+PRIORITY RULES — follow strictly:
+1. WEB SEARCH RESULTS contain the freshest, most specific data. Always prefer these facts, figures, names, and prices over anything else.
+2. BACKGROUND KNOWLEDGE fills gaps only where web results are silent or vague.
+3. Never contradict a specific figure from web results with a generic estimate from background knowledge.
+4. If web results have prices, dates, rankings, or product names — use them exactly.
 
 Return ONLY a valid JSON object with exactly these fields:
 {{
-  "summary": "3 sentence executive summary with the most important concrete findings and numbers",
+  "summary": "3 sentence executive summary — lead with the most specific findings and real numbers from web results",
   "key_stats": [
-    {{"value": "exact number/$/%/year from the data", "label": "what it represents"}}
+    {{"value": "exact number/$/%/year from web results", "label": "what it represents"}}
   ],
   "sections": [
-    {{"title": "Section Title", "content": "Rich markdown content. Use bullet points (-), bold (**text**), specific names and numbers. Min 5 bullet points per section."}}
+    {{"title": "Section Title", "content": "Rich markdown. Use bullet points (-), bold (**text**), specific names/numbers from web results. Min 5 bullets per section."}}
   ],
   "comparison_table": {{
     "headers": ["Aspect", "Option A", "Option B", "Option C"],
@@ -144,21 +144,21 @@ Return ONLY a valid JSON object with exactly these fields:
     ]
   }},
   "takeaways": [
-    "Actionable insight starting with a verb and containing a specific detail"
+    "Actionable insight starting with a verb and containing a specific detail from the research"
   ]
 }}
 
 Rules:
-- key_stats: exactly 4, all real numbers from the data
-- sections: exactly 4, each deep and specific — no filler sentences
-- comparison_table: compare 2-4 real options relevant to the question (products, approaches, providers, etc.)
+- key_stats: exactly 4, prefer real numbers from web results
+- sections: exactly 4, each grounded in specific findings — no filler
+- comparison_table: compare 2-4 real options from the research (products, providers, approaches)
 - takeaways: exactly 5, each starting with Choose/Avoid/Look for/Check/Compare/Use/Pick/Consider
 
-EXTRACTED FACTS:
-{facts}
+WEB SEARCH RESULTS (primary source — use these facts first):
+{web_results}
 
-RAW SEARCH RESULTS:
-{all_results}
+BACKGROUND KNOWLEDGE (use only to fill gaps):
+{knowledge}
 
 Question: {question}"""}],
         temperature=0.2,
@@ -207,7 +207,7 @@ def run_research(question):
     # Generate research angles
     angles = research_angles(question)
 
-    # Try web search to supplement — but only use if relevant
+    # Detect region
     q_lower = question.lower()
     region = "wt-wt"
     if any(w in q_lower for w in ["singapore", " sg"]):
@@ -219,25 +219,23 @@ def run_research(question):
     elif any(w in q_lower for w in ["australia", "sydney"]):
         region = "au-en"
 
+    # Search the main question + all angles (web results are primary)
+    search_queries = [question] + angles
     web_context = ""
     all_sources = []
-    for i, q in enumerate(angles):
+    for i, q in enumerate(search_queries):
         if i > 0:
-            time.sleep(1.2)
+            time.sleep(1.0)
         results, sources = web_search(q, region=region)
         if results:
             web_context += f"--- '{q}' ---\n{results}\n\n"
             all_sources.extend(sources)
 
-    # Primary: answer from model knowledge
+    # Background knowledge fills gaps only
     knowledge = answer_from_knowledge(question, angles)
 
-    # Synthesize combining knowledge + any good web results
-    combined_context = f"=== KNOWLEDGE BASE ANALYSIS ===\n{knowledge}\n\n"
-    if web_context:
-        combined_context += f"=== WEB SEARCH SUPPLEMENT ===\n{web_context}"
-
-    report = synthesize_report(question, combined_context, combined_context)
+    # Synthesize: web results primary, knowledge secondary
+    report = synthesize_report(question, web_context or "No web results found.", knowledge)
 
     seen = set()
     unique_sources = []
