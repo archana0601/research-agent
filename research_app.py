@@ -651,7 +651,7 @@ function renderReport(question, d) {
     "<div class='followup-box'>" +
       "<div class='label'>Ask a Follow-up Question</div>" +
       "<div class='followup-row'>" +
-        "<input id='fuInput' type='text' placeholder='e.g. Which option is best for beginners?' onkeydown='if(event.key===\"Enter\")askFollowup()' />" +
+        "<input id='fuInput' type='text' placeholder='e.g. Which option is best for beginners?' />" +
         "<button id='fuBtn' onclick='askFollowup()'>Ask</button>" +
       "</div>" +
       "<div class='followup-answer' id='fuAnswer'></div>" +
@@ -659,6 +659,14 @@ function renderReport(question, d) {
 
   currentData = d;
   currentQuestion = question;
+
+  // Wire up follow-up Enter key
+  var fuInput = document.getElementById("fuInput");
+  if (fuInput) {
+    fuInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") askFollowup();
+    });
+  }
 
   // Draw chart after DOM is updated
   setTimeout(function() {
@@ -797,5 +805,5 @@ Follow-up: {followup_q}"""}],
 
 
 if __name__ == "__main__":
-    print("Open your browser and go to: http://127.0.0.1:5000")
-    app.run(debug=True)
+    print("Open your browser and go to: http://127.0.0.1:5001")
+    app.run(debug=True, port=5001)
