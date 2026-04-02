@@ -44,6 +44,15 @@ def _is_relevant(results_text, query):
 
 
 def web_search(query, region="wt-wt"):
+    # Tavily first — better quality
+    if TAVILY_API_KEY:
+        try:
+            result, sources = _search_tavily(query)
+            if result:
+                return result, sources
+        except Exception as e:
+            print(f"[Tavily failed] {e}")
+    # Fallback: DuckDuckGo
     for attempt in range(3):
         try:
             results = DDGS().text(query, max_results=8, region=region)
@@ -60,11 +69,6 @@ def web_search(query, region="wt-wt"):
             print(f"[DDG attempt {attempt+1}] {e}")
         if attempt < 2:
             time.sleep(2 * (2 ** attempt) + random.uniform(-0.5, 0.5))
-    if TAVILY_API_KEY:
-        try:
-            return _search_tavily(query)
-        except Exception as e:
-            print(f"[Tavily failed] {e}")
     return "", []
 
 
@@ -252,6 +256,7 @@ HTML = """<!DOCTYPE html>
 <title>Research Agent</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0b0f; color: #e8e8f0; min-height: 100vh; display: flex; flex-direction: column; }
@@ -362,9 +367,22 @@ tr:hover td { background: #141422; color: #ddd; }
 .src a { font-size: 13px; color: #555; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; transition: color 0.2s; }
 .src a:hover { color: #7c6fff; }
 
-.export-bar { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+.export-bar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
 .export-btn { padding: 10px 22px; background: #1a1a28; border: 1px solid #333; color: #aaa; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .export-btn:hover { border-color: #7c6fff; color: #7c6fff; }
+
+.followup-box { background: #111118; border: 1px solid #1e1e2e; border-radius: 14px; padding: 24px; margin-top: 24px; }
+.followup-box .label { color: #7c6fff; margin-bottom: 14px; }
+.followup-row { display: flex; gap: 10px; }
+.followup-row input { flex: 1; padding: 13px 18px; font-size: 14px; border: 1.5px solid #1e1e2e; border-radius: 10px; background: #0b0b0f; color: #e8e8f0; outline: none; }
+.followup-row input:focus { border-color: #7c6fff; }
+.followup-row button { padding: 13px 22px; background: #1a1a2e; border: 1px solid #7c6fff44; color: #7c6fff; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.followup-row button:hover { background: #7c6fff22; }
+.followup-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+.followup-answer { margin-top: 18px; padding-top: 18px; border-top: 1px solid #1e1e2e; font-size: 14px; color: #aaa; line-height: 1.85; display: none; }
+.followup-answer ul { padding-left: 18px; }
+.followup-answer li { margin-bottom: 6px; }
+.followup-answer strong { color: #ddd; }
 
 @media print {
   body { background: white; color: #111; }
@@ -430,6 +448,7 @@ tr:hover td { background: #141422; color: #ddd; }
 <script>
 var chartInstance = null;
 var currentData = null;
+var currentQuestion = "";
 
 // ── History ──────────────────────────────────────────────────────────────────
 
@@ -607,18 +626,34 @@ function renderReport(question, d) {
   }).join("");
 
   r.innerHTML =
-    "<div class='export-bar'><button class='export-btn' onclick='window.print()'>Export PDF</button></div>" +
-    "<div class='q-banner'><div class='label'>Research Question</div><h2>" + question + "</h2></div>" +
-    "<div class='summary'><div class='label'>Executive Summary</div><p>" + (d.summary || "") + "</p></div>" +
-    "<div class='two-col'>" +
-      "<div class='stats-card'><div class='label'>Key Statistics</div>" + statsHtml + "</div>" +
-      "<div class='chart-card'><div class='label'>Stats at a Glance</div><canvas id='statsChart'></canvas></div>" +
+    "<div class='export-bar'>" +
+      "<button class='export-btn' id='pdfBtn' onclick='downloadPDF()'>Download PDF</button>" +
+      "<button class='export-btn' onclick='window.print()'>Print</button>" +
     "</div>" +
-    "<div class='sections-grid'>" + secsHtml + "</div>" +
-    tableHtml +
-    "<div class='takeaways'><div class='label'>Actionable Takeaways</div>" + twHtml + "</div>" +
-    "<div class='queries-row'>" + qHtml + "</div>" +
-    "<div class='sources'><div class='label'>Sources</div>" + srcHtml + "</div>";
+    "<div id='report-content'>" +
+      "<div class='q-banner'><div class='label'>Research Question</div><h2>" + question + "</h2></div>" +
+      "<div class='summary'><div class='label'>Executive Summary</div><p>" + (d.summary || "") + "</p></div>" +
+      "<div class='two-col'>" +
+        "<div class='stats-card'><div class='label'>Key Statistics</div>" + statsHtml + "</div>" +
+        "<div class='chart-card'><div class='label'>Stats at a Glance</div><canvas id='statsChart'></canvas></div>" +
+      "</div>" +
+      "<div class='sections-grid'>" + secsHtml + "</div>" +
+      tableHtml +
+      "<div class='takeaways'><div class='label'>Actionable Takeaways</div>" + twHtml + "</div>" +
+      "<div class='queries-row'>" + qHtml + "</div>" +
+      "<div class='sources'><div class='label'>Sources</div>" + srcHtml + "</div>" +
+    "</div>" +
+    "<div class='followup-box'>" +
+      "<div class='label'>Ask a Follow-up Question</div>" +
+      "<div class='followup-row'>" +
+        "<input id='fuInput' type='text' placeholder='e.g. Which option is best for beginners?' onkeydown='if(event.key===\"Enter\")askFollowup()' />" +
+        "<button id='fuBtn' onclick='askFollowup()'>Ask</button>" +
+      "</div>" +
+      "<div class='followup-answer' id='fuAnswer'></div>" +
+    "</div>";
+
+  currentData = d;
+  currentQuestion = question;
 
   // Draw chart after DOM is updated
   setTimeout(function() {
@@ -652,6 +687,59 @@ function renderReport(question, d) {
     });
   }, 100);
 }
+
+function downloadPDF() {
+  var btn = document.getElementById("pdfBtn");
+  btn.disabled = true;
+  btn.textContent = "Generating...";
+  var el = document.getElementById("report-content");
+  var opt = {
+    margin: [10, 10],
+    filename: (currentQuestion || "research-report").slice(0, 60) + ".pdf",
+    image: { type: "jpeg", quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+  };
+  // Temporarily apply light background for PDF
+  el.style.background = "#fff";
+  el.style.color = "#111";
+  html2pdf().set(opt).from(el).save().then(function() {
+    el.style.background = "";
+    el.style.color = "";
+    btn.disabled = false;
+    btn.textContent = "Download PDF";
+  });
+}
+
+async function askFollowup() {
+  var input = document.getElementById("fuInput");
+  var btn = document.getElementById("fuBtn");
+  var answerDiv = document.getElementById("fuAnswer");
+  var q = input.value.trim();
+  if (!q || !currentData) return;
+  btn.disabled = true;
+  btn.textContent = "Thinking...";
+  answerDiv.style.display = "block";
+  answerDiv.innerHTML = "<span style='color:#555'>Researching your follow-up...</span>";
+  try {
+    var res = await fetch("/followup", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question: currentQuestion, followup: q, report: currentData})
+    });
+    var text = await res.text();
+    var data = JSON.parse(text);
+    if (data.error) {
+      answerDiv.innerHTML = "<span style='color:#ff6b6b'>" + data.error + "</span>";
+    } else {
+      answerDiv.innerHTML = marked.parse(data.answer);
+    }
+  } catch(e) {
+    answerDiv.innerHTML = "<span style='color:#ff6b6b'>Something went wrong. Please try again.</span>";
+  }
+  btn.disabled = false;
+  btn.textContent = "Ask";
+}
 </script>
 </body>
 </html>"""
@@ -672,6 +760,33 @@ def research():
     try:
         report = run_research(question)
         return jsonify(report)
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+@app.route("/followup", methods=["POST"])
+def followup():
+    data = request.json
+    question = data.get("question", "").strip()
+    followup_q = data.get("followup", "").strip()
+    report = data.get("report", {})
+    if not followup_q:
+        return jsonify({"error": "No follow-up question provided."})
+    try:
+        context = f"Original research: {question}\n\nSummary: {report.get('summary', '')}\n\n"
+        for s in report.get("sections", []):
+            context += f"### {s['title']}\n{s['content']}\n\n"
+        res = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": f"""You are a research assistant. Using the research report below, answer the follow-up question with specific facts, numbers, and names. Use bullet points.
+
+Report:
+{context}
+
+Follow-up: {followup_q}"""}],
+            temperature=0.3,
+        )
+        return jsonify({"answer": res.choices[0].message.content.strip()})
     except Exception as e:
         return jsonify({"error": str(e)})
 
