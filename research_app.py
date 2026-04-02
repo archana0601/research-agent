@@ -426,7 +426,13 @@ async function go() {
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({question: q})
     });
-    var data = await res.json();
+    var text = await res.text();
+    var data;
+    try {
+      data = JSON.parse(text);
+    } catch(parseErr) {
+      throw new Error("Server returned unexpected response. Please try again.");
+    }
     clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
     pids.forEach(function(id){ document.getElementById(id).className = "ps done"; });
     loader.style.display = "none";
@@ -438,9 +444,10 @@ async function go() {
       renderReport(q, data);
     }
   } catch(e) {
+    clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
     loader.style.display = "none";
     document.getElementById("results").style.display = "block";
-    document.getElementById("results").innerHTML = "<p style='color:#ff6b6b;padding:20px 0'>Error: " + e.message + "</p>";
+    document.getElementById("results").innerHTML = "<p style='color:#ff6b6b;padding:20px 0'>" + e.message + "</p>";
   }
   document.getElementById("btn").disabled = false;
 }
