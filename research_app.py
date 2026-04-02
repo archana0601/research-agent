@@ -730,10 +730,185 @@ async function askFollowup() {
 </html>"""
 
 
+# ─── Landing Page ─────────────────────────────────────────────────────────────
+
+LANDING = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResearchAI — Deep Research, Beautifully Structured</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0b0f; color: #e8e8f0; }
+
+nav { display: flex; justify-content: space-between; align-items: center; padding: 22px 60px; border-bottom: 1px solid #1a1a2e; }
+.nav-logo { font-size: 18px; font-weight: 800; background: linear-gradient(135deg, #7c6fff, #3dd8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.nav-cta { padding: 10px 24px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); color: #0b0b0f; border: none; border-radius: 10px; font-size: 14px; font-weight: 800; cursor: pointer; text-decoration: none; }
+
+.hero { text-align: center; padding: 100px 24px 80px; max-width: 780px; margin: 0 auto; }
+.hero-badge { display: inline-block; background: #1a1a2e; border: 1px solid #2a2a55; color: #7c6fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 28px; }
+.hero h1 { font-size: 58px; font-weight: 900; line-height: 1.1; margin-bottom: 24px; }
+.hero h1 span { background: linear-gradient(135deg, #7c6fff, #3dd8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero p { font-size: 18px; color: #666; line-height: 1.7; margin-bottom: 40px; max-width: 560px; margin-left: auto; margin-right: auto; }
+.hero-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn-primary { padding: 16px 36px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); color: #0b0b0f; border: none; border-radius: 12px; font-size: 16px; font-weight: 800; cursor: pointer; text-decoration: none; }
+.btn-secondary { padding: 16px 36px; background: transparent; color: #aaa; border: 1.5px solid #2a2a3e; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.btn-secondary:hover { border-color: #7c6fff; color: #fff; }
+
+.features { padding: 80px 60px; max-width: 1100px; margin: 0 auto; }
+.features-label { text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: #444; font-weight: 700; margin-bottom: 16px; }
+.features h2 { text-align: center; font-size: 36px; font-weight: 900; margin-bottom: 60px; }
+.features h2 span { background: linear-gradient(135deg, #7c6fff, #3dd8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.feat { background: #111118; border: 1px solid #1e1e2e; border-radius: 16px; padding: 28px; transition: border-color 0.2s; }
+.feat:hover { border-color: #7c6fff44; }
+.feat-icon { font-size: 28px; margin-bottom: 16px; }
+.feat h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #fff; }
+.feat p { font-size: 13px; color: #555; line-height: 1.7; }
+
+.how { padding: 80px 60px; max-width: 900px; margin: 0 auto; }
+.how-label { text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: #444; font-weight: 700; margin-bottom: 16px; }
+.how h2 { text-align: center; font-size: 36px; font-weight: 900; margin-bottom: 60px; }
+.steps { display: flex; flex-direction: column; gap: 0; }
+.step { display: flex; gap: 28px; align-items: flex-start; padding: 28px 0; border-bottom: 1px solid #1a1a2e; }
+.step:last-child { border-bottom: none; }
+.step-num { width: 40px; height: 40px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; color: #0b0b0f; flex-shrink: 0; }
+.step-body h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.step-body p { font-size: 14px; color: #555; line-height: 1.6; }
+
+.cta-section { text-align: center; padding: 80px 24px 100px; }
+.cta-section h2 { font-size: 42px; font-weight: 900; margin-bottom: 16px; }
+.cta-section h2 span { background: linear-gradient(135deg, #7c6fff, #3dd8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.cta-section p { color: #555; font-size: 16px; margin-bottom: 36px; }
+
+footer { border-top: 1px solid #1a1a2e; padding: 28px 60px; display: flex; justify-content: space-between; align-items: center; }
+footer .logo { font-size: 15px; font-weight: 800; background: linear-gradient(135deg, #7c6fff, #3dd8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+footer p { font-size: 12px; color: #333; }
+
+@media (max-width: 768px) {
+  nav { padding: 18px 24px; }
+  .hero h1 { font-size: 36px; }
+  .features { padding: 60px 24px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .how { padding: 60px 24px; }
+  footer { flex-direction: column; gap: 8px; padding: 24px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">ResearchAI</div>
+  <a href="/app" class="nav-cta">Launch App</a>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge">Powered by Groq + Tavily</div>
+  <h1>Deep research,<br><span>beautifully structured.</span></h1>
+  <p>Ask any question. Get a full research report with charts, comparisons, key stats, and actionable takeaways — in under 30 seconds.</p>
+  <div class="hero-btns">
+    <a href="/app" class="btn-primary">Start Researching Free</a>
+    <a href="#features" class="btn-secondary">See How It Works</a>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="features-label">Features</div>
+  <h2>Everything a <span>great report</span> needs</h2>
+  <div class="features-grid">
+    <div class="feat">
+      <div class="feat-icon">&#128269;</div>
+      <h3>5 Targeted Searches</h3>
+      <p>Automatically breaks your question into focused angles and searches each one with Tavily for fresh, relevant results.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">&#129504;</div>
+      <h3>2-Pass AI Analysis</h3>
+      <p>First extracts raw facts, then synthesizes them into a structured report. No hallucinations, no vague summaries.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">&#128202;</div>
+      <h3>Charts & Key Stats</h3>
+      <p>Every report includes a visual chart and 4 key statistics pulled directly from the research data.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">&#128203;</div>
+      <h3>Comparison Tables</h3>
+      <p>Side-by-side comparisons of products, approaches, or providers — so you can make decisions fast.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">&#128172;</div>
+      <h3>Follow-up Questions</h3>
+      <p>Ask Claude follow-up questions about any report and get instant, context-aware answers.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">&#128196;</div>
+      <h3>PDF Export</h3>
+      <p>Download any report as a clean, formatted PDF — ready to share, present, or archive.</p>
+    </div>
+  </div>
+</section>
+
+<section class="how">
+  <div class="how-label">How It Works</div>
+  <h2>From question to report in seconds</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Type your question</h3>
+        <p>Ask anything — product comparisons, market research, scientific topics, travel, business strategy, and more.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>AI plans the research</h3>
+        <p>Groq breaks your question into 4 targeted sub-questions and runs live web searches via Tavily for each one.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Facts are extracted</h3>
+        <p>The AI reads all search results and extracts specific numbers, names, comparisons, and expert opinions.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Your report is ready</h3>
+        <p>A structured report with executive summary, key stats, 4 deep sections, comparison table, and 5 actionable takeaways.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-section">
+  <h2>Ready to research <span>smarter?</span></h2>
+  <p>Free to use. No sign-up required.</p>
+  <a href="/app" class="btn-primary">Launch ResearchAI</a>
+</section>
+
+<footer>
+  <div class="logo">ResearchAI</div>
+  <p>Built with Groq &amp; Tavily &mdash; Free &amp; Open</p>
+</footer>
+
+</body>
+</html>"""
+
+
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
+    return LANDING, 200, {"Content-Type": "text/html"}
+
+
+@app.route("/app")
+def app_page():
     return HTML, 200, {"Content-Type": "text/html"}
 
 
