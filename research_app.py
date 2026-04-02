@@ -8,7 +8,12 @@ from groq import Groq
 from duckduckgo_search import DDGS
 
 app = Flask(__name__)
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
+def get_client():
+    key = os.environ.get("GROQ_API_KEY")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY environment variable is not set.")
+    return Groq(api_key=key)
 
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
 
@@ -75,7 +80,7 @@ def web_search(query, region="wt-wt"):
 # ─── Research pipeline ────────────────────────────────────────────────────────
 
 def generate_queries(question):
-    res = client.chat.completions.create(
+    res = get_client().chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": f"""Generate 5 highly targeted search queries to comprehensively research this question.
 Cover: overview, statistics/data, expert opinions, recent developments, practical implications.
@@ -88,7 +93,7 @@ Question: {question}"""}],
 
 def extract_facts(raw_results, question):
     """Pass 1: pull out specific facts, numbers, names from raw search results."""
-    res = client.chat.completions.create(
+    res = get_client().chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": f"""You are a data extraction specialist. Read the search results carefully and extract every specific, concrete piece of information.
 
@@ -113,7 +118,7 @@ Topic: {question}"""}],
 
 def synthesize_report(question, facts, all_results):
     """Pass 2: build structured report from extracted facts."""
-    res = client.chat.completions.create(
+    res = get_client().chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": f"""You are a senior research analyst writing a structured report.
 
@@ -167,7 +172,7 @@ Question: {question}"""}],
 
 def research_angles(question):
     """Break question into 4 focused sub-questions to answer from knowledge."""
-    res = client.chat.completions.create(
+    res = get_client().chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": f"""Break this research question into 4 focused sub-questions that together give a complete picture.
 Return ONLY a JSON array of 4 strings.
@@ -180,7 +185,7 @@ Question: {question}"""}],
 def answer_from_knowledge(question, angles):
     """Use model knowledge to answer each research angle in depth."""
     angles_text = "\n".join(f"{i+1}. {a}" for i, a in enumerate(angles))
-    res = client.chat.completions.create(
+    res = get_client().chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": f"""You are a senior research analyst with deep expertise. Answer each of these research sub-questions thoroughly and specifically about: {question}
 
@@ -776,7 +781,7 @@ def followup():
         context = f"Original research: {question}\n\nSummary: {report.get('summary', '')}\n\n"
         for s in report.get("sections", []):
             context += f"### {s['title']}\n{s['content']}\n\n"
-        res = client.chat.completions.create(
+        res = get_client().chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": f"""You are a research assistant. Using the research report below, answer the follow-up question with specific facts, numbers, and names. Use bullet points.
 
