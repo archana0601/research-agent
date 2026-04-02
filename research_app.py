@@ -357,6 +357,15 @@ tr:hover td { background: rgba(124,111,255,0.04); color: #aaa; }
 .export-btn { padding: 9px 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); color: #555; border-radius: 9px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
 .export-btn:hover { border-color: rgba(167,139,250,0.4); color: #a78bfa; }
 
+.refine-bar { display: none; margin-top: 12px; background: rgba(124,111,255,0.07); border: 1px solid rgba(124,111,255,0.2); border-radius: 12px; padding: 14px 18px; }
+.refine-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(167,139,250,0.6); font-weight: 700; margin-bottom: 8px; }
+.refine-row { display: flex; gap: 10px; align-items: center; }
+.refine-row input { flex: 1; padding: 10px 14px; font-size: 14px; border: 1px solid rgba(124,111,255,0.25); border-radius: 9px; background: rgba(255,255,255,0.04); color: #e8e8f0; outline: none; font-family: inherit; }
+.refine-row input:focus { border-color: rgba(124,111,255,0.5); }
+.refine-confirm { padding: 10px 18px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); color: #07070d; border: none; border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; font-family: inherit; }
+.refine-cancel { padding: 10px 14px; background: transparent; color: #444; border: 1px solid rgba(255,255,255,0.07); border-radius: 9px; font-size: 13px; cursor: pointer; font-family: inherit; }
+.refine-cancel:hover { color: #888; }
+
 .followup-box { background: rgba(124,111,255,0.04); border: 1px solid rgba(124,111,255,0.12); border-radius: 16px; padding: 22px; margin-top: 20px; }
 .followup-box .label { color: rgba(167,139,250,0.7); margin-bottom: 14px; }
 .followup-row { display: flex; gap: 10px; }
@@ -412,6 +421,14 @@ tr:hover td { background: rgba(124,111,255,0.04); color: #aaa; }
         <input id="q" type="text" placeholder="What do you want to research?" onkeydown="if(event.key==='Enter')go()" autofocus />
         <button class="mic-btn" id="micBtn" title="Voice input">&#127908;</button>
         <button class="btn" id="btn" onclick="go()">Research</button>
+      </div>
+      <div class="refine-bar" id="refineBar">
+        <div class="refine-label">We understood your question as:</div>
+        <div class="refine-row">
+          <input id="refineInput" type="text" />
+          <button class="refine-cancel" id="refineCancel">Edit</button>
+          <button class="refine-confirm" id="refineConfirm">Search this &rarr;</button>
+        </div>
       </div>
     </div>
 
@@ -685,14 +702,12 @@ var listening = false;
 
 window.addEventListener("DOMContentLoaded", function() {
   renderSidebar();
+
   var micBtn = document.getElementById("micBtn");
   if (!micBtn) return;
 
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    micBtn.style.display = "none";
-    return;
-  }
+  if (!SpeechRecognition) { micBtn.style.display = "none"; return; }
 
   recognition = new SpeechRecognition();
   recognition.continuous = false;
@@ -703,7 +718,7 @@ window.addEventListener("DOMContentLoaded", function() {
     var transcript = e.results[0][0].transcript;
     document.getElementById("q").value = transcript;
     stopListening();
-    go();
+    refineAndConfirm(transcript);
   };
   recognition.onerror = function() { stopListening(); };
   recognition.onend = function() { stopListening(); };
@@ -711,13 +726,28 @@ window.addEventListener("DOMContentLoaded", function() {
   micBtn.addEventListener("click", function() {
     if (listening) { stopListening(); } else { startListening(); }
   });
+
+  document.getElementById("refineConfirm").addEventListener("click", function() {
+    var q = document.getElementById("refineInput").value.trim();
+    if (!q) return;
+    document.getElementById("q").value = q;
+    hideRefineBar();
+    go();
+  });
+
+  document.getElementById("refineCancel").addEventListener("click", function() {
+    var q = document.getElementById("refineInput").value.trim();
+    document.getElementById("q").value = q;
+    document.getElementById("q").focus();
+    hideRefineBar();
+  });
 });
 
 function startListening() {
   if (!recognition) return;
   listening = true;
   document.getElementById("micBtn").classList.add("listening");
-  document.getElementById("micBtn").textContent = "🔴";
+  document.getElementById("micBtn").innerHTML = "&#128308;";
   recognition.start();
 }
 
@@ -726,6 +756,34 @@ function stopListening() {
   var btn = document.getElementById("micBtn");
   if (btn) { btn.classList.remove("listening"); btn.innerHTML = "&#127908;"; }
   if (recognition) { try { recognition.stop(); } catch(e) {} }
+}
+
+function hideRefineBar() {
+  document.getElementById("refineBar").style.display = "none";
+}
+
+async function refineAndConfirm(raw) {
+  var bar = document.getElementById("refineBar");
+  var input = document.getElementById("refineInput");
+  input.value = "Interpreting...";
+  bar.style.display = "block";
+
+  try {
+    var res = await fetch("/refine", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({raw: raw})
+    });
+    var data = JSON.parse(await res.text());
+    if (data.refined) {
+      input.value = data.refined;
+      document.getElementById("q").value = data.refined;
+    } else {
+      input.value = raw;
+    }
+  } catch(e) {
+    input.value = raw;
+  }
 }
 
 function downloadPDF() {
@@ -1018,6 +1076,26 @@ def research():
     try:
         report = run_research(question)
         return jsonify(report)
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+@app.route("/refine", methods=["POST"])
+def refine():
+    raw = request.json.get("raw", "").strip()
+    if not raw:
+        return jsonify({"error": "No input."})
+    try:
+        res = get_client().chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": f"""The user spoke this via voice:
+
+"{raw}"
+
+Rewrite it as a clear, concise research question. Remove filler words, hesitations, and vagueness. Keep it specific and searchable. Return ONLY the refined question, nothing else."""}],
+            temperature=0.1,
+        )
+        return jsonify({"refined": res.choices[0].message.content.strip()})
     except Exception as e:
         return jsonify({"error": str(e)})
 
