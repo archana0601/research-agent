@@ -22,7 +22,7 @@ def _search_tavily(query):
     import requests as req
     resp = req.post(
         "https://api.tavily.com/search",
-        json={"api_key": TAVILY_API_KEY, "query": query, "max_results": 8},
+        json={"api_key": TAVILY_API_KEY, "query": query, "max_results": 5},
         timeout=10,
     )
     resp.raise_for_status()
@@ -33,7 +33,8 @@ def _search_tavily(query):
     out = ""
     sources = []
     for r in results:
-        out += f"Title: {r['title']}\nSummary: {r.get('content', '')}\nURL: {r['url']}\n\n"
+        content = r.get("content", "")[:300]  # cap each result at 300 chars
+        out += f"Title: {r['title']}\nSummary: {content}\nURL: {r['url']}\n\n"
         sources.append({"title": r["title"], "url": r["url"]})
     return out.strip(), sources
 
@@ -191,18 +192,21 @@ def run_research(question):
     elif any(w in q_lower for w in ["australia", "sydney"]):
         region = "au-en"
 
-    # Search the main question + all angles (web results are primary)
-    search_queries = [question] + angles
+    # Search top 3 angles only (keeps token count manageable)
     web_context = ""
     all_sources = []
-    for q in search_queries:
+    for q in angles[:3]:
         results, sources = web_search(q, region=region)
         if results:
             web_context += f"--- '{q}' ---\n{results}\n\n"
             all_sources.extend(sources)
 
+    # Cap total web context to avoid token limit
+    web_context = web_context[:6000]
+
     # Background knowledge fills gaps only
     knowledge = answer_from_knowledge(question, angles)
+    knowledge = knowledge[:2000]
 
     # Synthesize: web results primary, knowledge secondary
     report = synthesize_report(question, web_context or "No web results found.", knowledge)
