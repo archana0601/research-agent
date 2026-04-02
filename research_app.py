@@ -2,10 +2,8 @@ import os
 import json
 import re
 import time
-import random
 from flask import Flask, request, jsonify
 from groq import Groq
-from duckduckgo_search import DDGS
 
 app = Flask(__name__)
 
@@ -40,41 +38,15 @@ def _search_tavily(query):
     return out.strip(), sources
 
 
-def _is_relevant(results_text, query):
-    """Check if results contain at least some words from the query."""
-    keywords = [w.lower() for w in query.split() if len(w) > 3]
-    text_lower = results_text.lower()
-    matches = sum(1 for kw in keywords if kw in text_lower)
-    return matches >= max(1, len(keywords) // 3)
-
 
 def web_search(query, region="wt-wt"):
-    # Tavily first — better quality
-    if TAVILY_API_KEY:
-        try:
-            result, sources = _search_tavily(query)
-            if result:
-                return result, sources
-        except Exception as e:
-            print(f"[Tavily failed] {e}")
-    # Fallback: DuckDuckGo
-    for attempt in range(3):
-        try:
-            results = DDGS().text(query, max_results=8, region=region)
-            if results:
-                out = ""
-                sources = []
-                for r in results:
-                    out += f"Title: {r['title']}\nSummary: {r['body']}\nURL: {r['href']}\n\n"
-                    sources.append({"title": r["title"], "url": r["href"]})
-                if _is_relevant(out, query):
-                    return out.strip(), sources
-                print(f"[web_search] Results not relevant for: {query}")
-        except Exception as e:
-            print(f"[DDG attempt {attempt+1}] {e}")
-        if attempt < 2:
-            time.sleep(2 * (2 ** attempt) + random.uniform(-0.5, 0.5))
-    return "", []
+    if not TAVILY_API_KEY:
+        return "", []
+    try:
+        return _search_tavily(query)
+    except Exception as e:
+        print(f"[Tavily failed] {e}")
+        return "", []
 
 
 # ─── Research pipeline ────────────────────────────────────────────────────────
@@ -223,9 +195,7 @@ def run_research(question):
     search_queries = [question] + angles
     web_context = ""
     all_sources = []
-    for i, q in enumerate(search_queries):
-        if i > 0:
-            time.sleep(1.0)
+    for q in search_queries:
         results, sources = web_search(q, region=region)
         if results:
             web_context += f"--- '{q}' ---\n{results}\n\n"
