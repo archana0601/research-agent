@@ -2,7 +2,7 @@ import os
 import json
 import re
 import time
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from groq import Groq
 
 app = Flask(__name__)
@@ -265,10 +265,10 @@ header { padding: 16px 32px; border-bottom: 1px solid rgba(255,255,255,0.05); di
 
 /* Main */
 .main { flex: 1; overflow-x: hidden; }
-.hero { padding: 52px 48px 32px; max-width: 880px; margin: 0 auto; }
-.hero h1 { font-size: 32px; font-weight: 900; letter-spacing: -1px; margin-bottom: 8px; }
-.hero h1 span { background: linear-gradient(135deg, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.hero p { color: #333; font-size: 14px; margin-bottom: 24px; font-weight: 400; }
+.app-hero { padding: 52px 48px 32px; max-width: 880px; margin: 0 auto; }
+.app-hero h1 { font-size: 32px; font-weight: 900; letter-spacing: -1px; margin-bottom: 8px; }
+.app-hero h1 span { background: linear-gradient(135deg, #a78bfa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.app-hero p { color: #333; font-size: 14px; margin-bottom: 24px; font-weight: 400; }
 
 .search-wrap { position: relative; display: flex; gap: 10px; align-items: center; }
 .search-wrap input { flex: 1; padding: 22px 28px; font-size: 18px; border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; background: rgba(255,255,255,0.04); color: #e8e8f0; outline: none; transition: all 0.2s; font-family: inherit; font-weight: 400; }
@@ -406,7 +406,7 @@ tr:hover td { background: rgba(124,111,255,0.04); color: #aaa; }
 
   <!-- Main -->
   <div class="main">
-    <div class="hero">
+    <div class="app-hero">
       <h1>Deep research, <span>beautifully structured.</span></h1>
       <p>Live web search &rarr; AI analysis &rarr; Structured report with charts, comparisons &amp; takeaways.</p>
       <div class="search-wrap">
@@ -417,6 +417,7 @@ tr:hover td { background: rgba(124,111,255,0.04); color: #aaa; }
     </div>
 
     <div class="container">
+
       <div class="loader" id="loader">
         <div class="progress-steps">
           <div class="ps" id="p1"><div class="ps-dot"></div> Planning research angles...</div>
@@ -1025,14 +1026,22 @@ footer p { font-size: 11px; color: #1e1e2e; }
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
+def no_cache(html):
+    r = make_response(html, 200)
+    r.headers["Content-Type"] = "text/html"
+    r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    r.headers["Pragma"] = "no-cache"
+    r.headers["Expires"] = "0"
+    return r
+
 @app.route("/")
 def index():
-    return LANDING, 200, {"Content-Type": "text/html"}
+    return no_cache(LANDING)
 
 
 @app.route("/app")
 def app_page():
-    return HTML, 200, {"Content-Type": "text/html"}
+    return no_cache(HTML)
 
 
 @app.route("/research", methods=["POST"])
