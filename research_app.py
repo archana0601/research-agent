@@ -840,10 +840,10 @@ nav { display: flex; justify-content: space-between; align-items: center; paddin
 .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(124,111,255,0.1); border: 1px solid rgba(124,111,255,0.25); color: #a78bfa; padding: 6px 14px; border-radius: 100px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 28px; }
 .badge-dot { width: 6px; height: 6px; background: #7c6fff; border-radius: 50%; animation: pulse 2s infinite; flex-shrink: 0; }
 @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
-.hero h1 { font-size: 62px; font-weight: 900; line-height: 1.06; letter-spacing: -2px; margin-bottom: 20px; }
+.hero h1 { font-size: 62px; font-weight: 900; line-height: 1.06; letter-spacing: -2px; margin-bottom: 28px; }
 .hero h1 .grad { background: linear-gradient(135deg, #a78bfa 0%, #34d399 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.hero p { font-size: 16px; color: #4a4a5a; line-height: 1.65; margin-bottom: 28px; max-width: 460px; margin-left: auto; margin-right: auto; }
-.hero-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 36px; }
+.hero p { font-size: 16px; color: #4a4a5a; line-height: 1.65; margin-bottom: 40px; max-width: 460px; margin-left: auto; margin-right: auto; }
+.hero-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 52px; }
 .btn-primary { padding: 14px 28px; background: linear-gradient(135deg, #7c6fff, #3dd8cc); color: #07070d; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 24px rgba(124,111,255,0.3); }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 36px rgba(124,111,255,0.45); }
 .btn-ghost { padding: 14px 28px; background: transparent; color: #555; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
